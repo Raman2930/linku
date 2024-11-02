@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, Link2, Star, StarOff, X, Search, Clock, MoveUp, Filter } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import Card from './components/ui/Card';
+import CardContent from './components/ui/CardContent';
 
 const CATEGORIES = [
   { id: 'reels', label: 'Reels', color: 'bg-pink-100 text-pink-800' },
