@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import  Card from './components/ui/Card';
 import  CardContent from './components/ui/CardContent';
@@ -7,14 +8,34 @@ import { Trash2, Maximize2, Star, Globe, Loader2, ExternalLink } from 'lucide-re
 import  ScrollArea from './components/ui/ScrollArea';
 import  ScrollBar from './components/ui/ScrollBar';
 import { X } from 'lucide-react'; 
-import { Play } from 'lucide-react'; 
+import { 
+  PencilLine,  Plus,
+  Clock, Check, AlertCircle, Clock3, Filter
+} from 'lucide-react';
+import Textarea  from './components/ui/Textarea';
+import {Play} from 'lucide-react';
+import './index.css';
+import './globals.css';
 
-const DEFAULT_PREVIEW = {
-  title: '',
-  description: '',
-  image: '/api/placeholder/400/200',
-  siteName: '',
-  type: 'link'
+
+const PRIORITY_STATES = {
+  NONE: 'none',
+  PENDING: 'pending',
+  DONE: 'done',
+  REMAINING: 'remaining'
+};
+
+const PRIORITY_COLORS = {
+  [PRIORITY_STATES.PENDING]: 'blue',
+  [PRIORITY_STATES.DONE]: 'green',
+  [PRIORITY_STATES.REMAINING]: 'red'
+};
+
+const PRIORITY_LABELS = {
+  [PRIORITY_STATES.NONE]: 'No Status',
+  [PRIORITY_STATES.PENDING]: 'Pending',
+  [PRIORITY_STATES.DONE]: 'Completed',
+  [PRIORITY_STATES.REMAINING]: 'Remaining'
 };
 
 const LinkManager = () => {
@@ -27,9 +48,13 @@ const LinkManager = () => {
       return [];
     }
   });
+  
   const [newUrl, setNewUrl] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [expandedCard, setExpandedCard] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [newNote, setNewNote] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterDomain, setFilterDomain] = useState('');
 
   useEffect(() => {
     try {
@@ -39,19 +64,6 @@ const LinkManager = () => {
     }
   }, [links]);
 
-  useEffect(() => {
-    const handlePaste = async (e) => {
-      const pastedUrl = e.clipboardData.getData('text');
-      if (pastedUrl.startsWith('http')) {
-        setNewUrl(pastedUrl);
-        await addLink(pastedUrl);
-      }
-    };
-
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, []);
-
   const getUrlHostname = (url) => {
     try {
       return new URL(url).hostname;
@@ -60,125 +72,99 @@ const LinkManager = () => {
     }
   };
 
-  const getContentType = (url) => {
-    const hostname = getUrlHostname(url).toLowerCase();
-    if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) return 'youtube';
-    if (hostname.includes('instagram.com')) return 'instagram';
-    return 'blog';
+  const formatTime = (date) => {
+    return new Date(date).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
-  const getEmbedUrl = (url, type) => {
-    switch (type) {
-      case 'youtube':
-        const videoId = url.includes('youtu.be') 
-          ? url.split('/').pop()
-          : new URLSearchParams(new URL(url).search).get('v');
-        return `https://www.youtube.com/embed/${videoId}`;
-      case 'instagram':
-        return `${url}embed`;
-      default:
-        return url;
-    }
+  const addLink = () => {
+    if (!newUrl) return;
+
+    const newLink = {
+      id: Date.now(),
+      url: newUrl,
+      date: new Date().toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'short'
+      }),
+      timestamp: Date.now(),
+      priority: PRIORITY_STATES.NONE,
+      notes: '',
+    };
+
+    setLinks(prevLinks => [newLink, ...prevLinks]);
+    setNewUrl('');
   };
 
-  // Simulated metadata extraction - in a real app, you'd use a backend service
-  const extractMetadata = async (url) => {
-    const type = getContentType(url);
-    const hostname = getUrlHostname(url);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    switch (type) {
-      case 'youtube':
-        return {
-          title: 'YouTube Video Title',
-          description: 'This is an example YouTube video description that would be extracted from the video metadata...',
-          siteName: 'YouTube',
-          type: 'youtube'
-        };
-      case 'instagram':
-        return {
-          title: 'Instagram Post',
-          description: 'Instagram post caption would appear here with hashtags and mentions...',
-          siteName: 'Instagram',
-          type: 'instagram'
-        };
-      default:
-        return {
-          title: `Article from ${hostname}`,
-          description: 'This is the article excerpt or meta description that would be extracted from the blog post...',
-          siteName: hostname,
-          type: 'blog'
-        };
-    }
-  };
-
-  const fetchLinkPreview = async (url) => {
-    try {
-      setLoading(true);
-      const metadata = await extractMetadata(url);
-      const type = getContentType(url);
-      
-      return {
-        ...DEFAULT_PREVIEW,
-        ...metadata,
-        embedUrl: getEmbedUrl(url, type)
-      };
-    } catch (error) {
-      console.error('Error fetching preview:', error);
-      return DEFAULT_PREVIEW;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addLink = async (urlToAdd) => {
-    const url = urlToAdd || newUrl;
-    if (!url) return;
-
-    try {
-      const preview = await fetchLinkPreview(url);
-      const newLink = {
-        id: Date.now(),
-        url,
-        preview,
-        date: new Date().toLocaleDateString('en-US', {
-          day: 'numeric',
-          month: 'short'
-        }),
-        priority: false,
-      };
-
-      setLinks(prevLinks => [newLink, ...prevLinks]);
-      setNewUrl('');
-    } catch (error) {
-      console.error('Error adding link:', error);
-    }
-  };
-
-  const deleteLink = (e, id) => {
-    e.stopPropagation();
+  const deleteLink = (id) => {
     setLinks(links.filter(link => link.id !== id));
+    setEditingId(null);
   };
 
-  const togglePriority = (e, id) => {
-    e.stopPropagation();
+  const cyclePriorityState = (currentState) => {
+    const states = Object.values(PRIORITY_STATES);
+    const currentIndex = states.indexOf(currentState);
+    const nextIndex = (currentIndex + 1) % states.length;
+    return states[nextIndex];
+  };
+
+  const togglePriority = (id) => {
     setLinks(links.map(link => 
-      link.id === id ? { ...link, priority: !link.priority } : link
+      link.id === id ? {
+        ...link,
+        priority: cyclePriorityState(link.priority)
+      } : link
     ));
   };
 
-  const handleCardClick = (link) => {
-    setExpandedCard(expandedCard?.id === link.id ? null : link);
+  const updateNotes = (id) => {
+    setLinks(links.map(link => 
+      link.id === id ? { ...link, notes: newNote } : link
+    ));
+    setEditingId(null);
+    setNewNote('');
   };
 
-  const handleDoubleClick = (url) => {
-    window.open(url, '_blank');
+  const startEditing = (link) => {
+    setEditingId(link.id);
+    setNewNote(link.notes);
   };
 
-  // Group links by date
-  const groupedLinks = links.reduce((groups, link) => {
+  const getPriorityIcon = (priority) => {
+    switch (priority) {
+      case PRIORITY_STATES.PENDING:
+        return <Clock className="h-4 w-4" />;
+      case PRIORITY_STATES.DONE:
+        return <Check className="h-4 w-4" />;
+      case PRIORITY_STATES.REMAINING:
+        return <AlertCircle className="h-4 w-4" />;
+      default:
+        return <Star className="h-4 w-4" />;
+    }
+  };
+
+  const filterLinks = (links) => {
+    return links.filter(link => {
+      const domainMatch = filterDomain ? 
+        getUrlHostname(link.url).includes(filterDomain.toLowerCase()) : true;
+      
+      switch (activeFilter) {
+        case PRIORITY_STATES.PENDING:
+          return link.priority === PRIORITY_STATES.PENDING && domainMatch;
+        case PRIORITY_STATES.DONE:
+          return link.priority === PRIORITY_STATES.DONE && domainMatch;
+        case PRIORITY_STATES.REMAINING:
+          return link.priority === PRIORITY_STATES.REMAINING && domainMatch;
+        default:
+          return domainMatch;
+      }
+    });
+  };
+
+  const groupedLinks = filterLinks(links).reduce((groups, link) => {
     const date = link.date;
     if (!groups[date]) {
       groups[date] = [];
@@ -188,120 +174,213 @@ const LinkManager = () => {
   }, {});
 
   return (
-    <div className="max-w-6xl mx-auto p-4 space-y-8">
-      {/* Input Box */}
-      <div className="flex justify-center">
-        <div className="w-full max-w-2xl">
-          <Card className="shadow-lg hover:shadow-xl transition-shadow">
-            <CardContent className="p-6">
+    <div className="max-w-4xl mx-auto p-4 space-y-8 bg-slate-50 min-h-screen">
+      <div className="sticky top-4 z-10 space-y-4">
+        <Card className="shadow-lg bg-white">
+          <CardContent className="p-4">
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                placeholder="Paste your link here..."
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addLink()}
+                className="flex-1"
+              />
+              <Button onClick={addLink} size="icon">
+                <Plus className="h-4 w-4" />
+              </Button>
               <div className="relative">
-                <Input
-                  type="url"
-                  placeholder="Type or paste any link here..."
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addLink()}
-                  className="w-full text-lg py-6 px-4 rounded-xl border-2 focus:border-blue-500"
-                />
-                {loading && (
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                    <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                  </div>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={showFilters ? 'bg-slate-100' : ''}
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
+                {showFilters && (
+                  <Card className="absolute right-0 mt-2 w-64 p-4 shadow-xl z-20 bg-white">
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-medium mb-2">Filter by Status</h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant={activeFilter === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setActiveFilter('all')}
+                            className="w-full"
+                          >
+                            All
+                          </Button>
+                          <Button
+                            variant={activeFilter === PRIORITY_STATES.PENDING ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setActiveFilter(PRIORITY_STATES.PENDING)}
+                            className="w-full text-blue-500"
+                          >
+                            <Clock className="h-4 w-4 mr-1" />
+                            Pending
+                          </Button>
+                          <Button
+                            variant={activeFilter === PRIORITY_STATES.DONE ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setActiveFilter(PRIORITY_STATES.DONE)}
+                            className="w-full text-green-500"
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Done
+                          </Button>
+                          <Button
+                            variant={activeFilter === PRIORITY_STATES.REMAINING ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setActiveFilter(PRIORITY_STATES.REMAINING)}
+                            className="w-full text-red-500"
+                          >
+                            <AlertCircle className="h-4 w-4 mr-1" />
+                            Remaining
+                          </Button>
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-medium mb-2">Filter by Website</h3>
+                        <Input
+                          type="text"
+                          placeholder="Enter website name..."
+                          value={filterDomain}
+                          onChange={(e) => setFilterDomain(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </Card>
                 )}
               </div>
-              <p className="text-center text-sm text-gray-500 mt-2">
-                Press Ctrl+V to instantly add a link from your clipboard
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Links Grid */}
-      <div className="space-y-6">
+      <div className="space-y-8">
         {Object.entries(groupedLinks).map(([date, dateLinks]) => (
           <div key={date} className="space-y-4">
-            <h2 className="text-xl font-semibold px-2">{date}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <h2 className="text-xl font-semibold text-slate-800 px-2">{date}</h2>
+            <div className="grid grid-cols-1 gap-4">
               {dateLinks.map(link => (
                 <Card 
                   key={link.id}
-                  className={`transform transition-all duration-200 hover:-translate-y-1
-                    ${link.priority ? 'ring-2 ring-blue-500' : ''}
-                    ${expandedCard?.id === link.id ? 'col-span-full' : ''}`}
-                  onClick={() => handleCardClick(link)}
-                  onDoubleClick={() => handleDoubleClick(link.url)}
+                  className={`bg-white ${link.priority !== PRIORITY_STATES.NONE ? 
+                    `ring-2 ring-${PRIORITY_COLORS[link.priority]}-500` : ''}`}
                 >
-                  <CardContent className="p-4 space-y-3">
-                    <div className={`relative ${expandedCard?.id === link.id ? 'aspect-video' : 'aspect-[16/9]'}`}>
-                      {expandedCard?.id === link.id && (link.preview?.type === 'youtube' || link.preview?.type === 'instagram') ? (
-                        <iframe 
-                          src={link.preview.embedUrl}
-                          className="absolute inset-0 w-full h-full rounded-lg"
-                          title="content"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      ) : (
-                        <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center group">
-                          {link.preview?.image ? (
-                            <img 
-                              src={link.preview.image} 
-                              alt={link.preview.title}
-                              className="w-full h-full object-cover rounded-lg"
-                            />
-                          ) : (
-                            <Globe className="w-12 h-12 text-gray-400" />
-                          )}
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg flex items-center justify-center">
-                            <Play className="w-12 h-12 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <CardContent className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-1">
+                          <a 
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline break-all"
+                          >
+                            {getUrlHostname(link.url)}
+                          </a>
+                          <div className="flex items-center text-xs text-slate-500">
+                            <Clock3 className="h-3 w-3 mr-1" />
+                            {formatTime(link.timestamp)}
                           </div>
                         </div>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-semibold text-base">
-                        {link.preview?.title || getUrlHostname(link.url)}
-                      </h3>
-                      <p className="text-sm text-gray-600 line-clamp-2 mt-1">
-                        {link.preview?.description}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                        <Globe className="w-3 h-3" />
-                        {link.preview?.siteName || getUrlHostname(link.url)}
-                      </p>
-                    </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <div className="group relative">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => togglePriority(link.id)}
+                              className={link.priority !== PRIORITY_STATES.NONE ? 
+                                `text-${PRIORITY_COLORS[link.priority]}-500` : ''}
+                            >
+                              {getPriorityIcon(link.priority)}
+                            </Button>
+                            <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 
+                              bg-slate-800 text-white px-2 py-1 rounded text-xs whitespace-nowrap
+                              opacity-0 group-hover:opacity-100 transition-opacity">
+                              {PRIORITY_LABELS[link.priority]}
+                            </span>
+                          </div>
+                          <div className="group relative">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => window.open(link.url, '_blank')}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                            <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 
+                              bg-slate-800 text-white px-2 py-1 rounded text-xs
+                              opacity-0 group-hover:opacity-100 transition-opacity">
+                              Open Link
+                            </span>
+                          </div>
+                          <div className="group relative">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => deleteLink(link.id)}
+                              className="hover:text-red-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 
+                              bg-slate-800 text-white px-2 py-1 rounded text-xs
+                              opacity-0 group-hover:opacity-100 transition-opacity">
+                              Delete
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-                    <div className="flex justify-between items-center pt-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={(e) => togglePriority(e, link.id)}
-                        className={`transition-colors hover:bg-blue-50 
-                          ${link.priority ? 'text-blue-500' : 'hover:text-blue-500'}`}
-                      >
-                        <Star className="h-4 w-4" fill={link.priority ? 'currentColor' : 'none'} />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(link.url, '_blank');
-                        }}
-                        className="hover:bg-gray-100"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={(e) => deleteLink(e, link.id)}
-                        className="hover:text-red-500 transition-colors hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {editingId === link.id ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            placeholder="Write your notes, ideas, or summary..."
+                            value={newNote}
+                            onChange={(e) => setNewNote(e.target.value)}
+                            className="w-full min-h-[100px]"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setEditingId(null)}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Cancel
+                            </Button>
+                            <Button 
+                              size="sm"
+                              onClick={() => updateNotes(link.id)}
+                            >
+                              Save Notes
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {link.notes && (
+                            <p className="text-sm text-slate-600 whitespace-pre-wrap">
+                              {link.notes}
+                            </p>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startEditing(link)}
+                            className="text-slate-500 hover:text-slate-700"
+                          >
+                            <PencilLine className="h-4 w-4 mr-1" />
+                            {link.notes ? 'Edit Notes' : 'Add Notes'}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

@@ -1,350 +1,321 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Link2, Star, StarOff, X, Search, Clock, MoveUp, Filter } from 'lucide-react';
-import { Card, CardContent } from './components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Trash2, Star, ExternalLink, PencilLine, X, Plus, Clock, Check, AlertCircle, Clock3, Filter } from 'lucide-react';
 
-const CATEGORIES = [
-  { id: 'reels', label: 'Reels', color: 'bg-pink-100 text-pink-800' },
-  { id: 'useful', label: 'Useful', color: 'bg-green-100 text-green-800' },
-  { id: 'work', label: 'Work', color: 'bg-blue-100 text-blue-800' },
-  { id: 'shopping', label: 'Shopping', color: 'bg-purple-100 text-purple-800' },
-  { id: 'reading', label: 'Reading', color: 'bg-yellow-100 text-yellow-800' },
-  { id: 'other', label: 'Other', color: 'bg-gray-100 text-gray-800' }
-];
+const PRIORITY_STATES = {
+    NONE: 'none',
+    PENDING: 'pending',
+    DONE: 'done',
+    REMAINING: 'remaining'
+};
 
-const SORT_OPTIONS = [
-  { id: 'newest', label: 'Newest First', icon: Clock },
-  { id: 'oldest', label: 'Oldest First', icon: Clock },
-  { id: 'priority', label: 'Priority First', icon: Star }
-];
+const PRIORITY_COLORS = {
+    [PRIORITY_STATES.PENDING]: 'blue',
+    [PRIORITY_STATES.DONE]: 'green',
+    [PRIORITY_STATES.REMAINING]: 'red'
+};
+
+const PRIORITY_LABELS = {
+    [PRIORITY_STATES.NONE]: 'No Status',
+    [PRIORITY_STATES.PENDING]: 'Pending',
+    [PRIORITY_STATES.DONE]: 'Completed',
+    [PRIORITY_STATES.REMAINING]: 'Remaining'
+};
 
 const LinkManager = () => {
-  const [links, setLinks] = useState(() => {
-    const saved = localStorage.getItem('quickLinks');
-    try {
-      return JSON.parse(saved) || [];
-    } catch {
-      return [];
-    }
-  });
-  
-  const [newLink, setNewLink] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
-  const [moveLink, setMoveLink] = useState(null);
-  const [showSearch, setShowSearch] = useState(false);
-
-  useEffect(() => {
-    localStorage.setItem('quickLinks', JSON.stringify(links));
-  }, [links]);
-
-  useEffect(() => {
-    const handlePaste = async (e) => {
-      const pastedText = e.clipboardData.getData('text');
-      if (isValidUrl(pastedText) && !links.some(link => link.url === pastedText)) {
-        setNewLink({
-          url: pastedText,
-          favicon: `https://www.google.com/s2/favicons?domain=${new URL(pastedText).hostname}`
-        });
-      }
-    };
-
-    document.addEventListener('paste', handlePaste);
-    return () => document.removeEventListener('paste', handlePaste);
-  }, [links]);
-
-  const addLink = (category) => {
-    if (!newLink) return;
-    
-    const linkData = {
-      id: Date.now(),
-      url: newLink.url,
-      favicon: newLink.favicon,
-      timestamp: new Date().toISOString(),
-      priority: 'normal',
-      category
-    };
-    
-    setLinks(prev => [linkData, ...prev]);
-    setNewLink(null);
-  };
-
-  const moveToCategory = (linkId, newCategory) => {
-    setLinks(links.map(link => 
-      link.id === linkId ? { ...link, category: newCategory } : link
-    ));
-    setMoveLink(null);
-  };
-
-  const isValidUrl = (string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  };
-
-  const togglePriority = (id) => {
-    setLinks(links.map(link => 
-      link.id === id 
-        ? { ...link, priority: link.priority === 'normal' ? 'important' : 'normal' }
-        : link
-    ));
-  };
-
-  const deleteLink = (id) => {
-    setLinks(links.filter(link => link.id !== id));
-  };
-
-  const getDomain = (url) => {
-    try {
-      return new URL(url).hostname.replace('www.', '');
-    } catch (_) {
-      return url;
-    }
-  };
-
-  const formatDate = (isoString) => {
-    const date = new Date(isoString);
-    return new Intl.DateTimeFormat('default', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
-  };
-
-  const filterAndSortLinks = (categoryLinks) => {
-    let filtered = categoryLinks;
-    
-    if (searchTerm) {
-      filtered = categoryLinks.filter(link => 
-        link.url.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    return filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'oldest':
-          return new Date(a.timestamp) - new Date(b.timestamp);
-        case 'priority':
-          return b.priority === 'important' ? 1 : -1;
-        default: // newest
-          return new Date(b.timestamp) - new Date(a.timestamp);
-      }
+    const [links, setLinks] = useState(() => {
+        try {
+            const savedLinks = localStorage.getItem('links');
+            return savedLinks ? JSON.parse(savedLinks) : [];
+        } catch (error) {
+            console.error('Error loading links:', error);
+            return [];
+        }
     });
-  };
 
-  const groupedLinks = CATEGORIES.reduce((acc, category) => {
-    acc[category.id] = filterAndSortLinks(
-      links.filter(link => link.category === category.id)
-    );
-    return acc;
-  }, {});
+    const [newUrl, setNewUrl] = useState('');
+    const [editingId, setEditingId] = useState(null);
+    const [newNote, setNewNote] = useState('');
+    const [activeFilter, setActiveFilter] = useState('all');
+    const [showFilters, setShowFilters] = useState(false);
+    const [filterDomain, setFilterDomain] = useState('');
 
-  return (
-    <div className="max-w-3xl mx-auto p-4">
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="text-gray-600 flex items-center gap-2">
-              <Link2 size={20} />
-              Press Ctrl+V (Cmd+V on Mac) to add a link
-            </div>
-            <div className="flex items-center gap-2">
-              {showSearch ? (
-                <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-2">
-                  <Search size={18} className="text-gray-500" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search links..."
-                    className="bg-transparent border-none outline-none w-40"
-                  />
-                  <button 
-                    onClick={() => {
-                      setSearchTerm('');
-                      setShowSearch(false);
-                    }}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowSearch(true)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <Search size={20} />
-                </button>
-              )}
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="appearance-none bg-gray-100 px-3 py-2 pr-8 rounded-lg cursor-pointer"
-                >
-                  {SORT_OPTIONS.map(option => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <Filter size={16} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500" />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    useEffect(() => {
+        try {
+            localStorage.setItem('links', JSON.stringify(links));
+        } catch (error) {
+            console.error('Error saving links:', error);
+        }
+    }, [links]);
 
-      {/* Category Selection Modal */}
-      {newLink && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-96 p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Choose Category</h3>
-              <button 
-                onClick={() => setNewLink(null)}
-                className="p-1 hover:bg-gray-100 rounded-full"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {CATEGORIES.map(category => (
-                <button
-                  key={category.id}
-                  onClick={() => addLink(category.id)}
-                  className={`p-3 rounded-lg ${category.color} hover:opacity-90 transition-opacity`}
-                >
-                  {category.label}
-                </button>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )}
+    const getUrlHostname = (url) => {
+        try {
+            return new URL(url).hostname;
+        } catch (error) {
+            return url;
+        }
+    };
 
-      {/* Move Link Modal */}
-      {moveLink && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-96 p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Move to Category</h3>
-              <button 
-                onClick={() => setMoveLink(null)}
-                className="p-1 hover:bg-gray-100 rounded-full"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {CATEGORIES.map(category => (
-                <button
-                  key={category.id}
-                  onClick={() => moveToCategory(moveLink, category.id)}
-                  className={`p-3 rounded-lg ${category.color} hover:opacity-90 transition-opacity`}
-                >
-                  {category.label}
-                </button>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )}
+    const formatTime = (date) => {
+        return new Date(date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    };
 
-      {/* Links by Category */}
-      <div className="space-y-6">
-        {CATEGORIES.map(category => (
-          <div key={category.id}>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold">{category.label}</h2>
-              <span className="text-sm text-gray-500">
-                {groupedLinks[category.id].length} links
-              </span>
-            </div>
-            {groupedLinks[category.id].length ? (
-              <div className="space-y-2">
-                {groupedLinks[category.id].map(link => (
-                  <Card key={link.id} className="hover:shadow-md transition-shadow">
+    const addLink = () => {
+        if (!newUrl) return;
+        const newLink = {
+            id: Date.now(),
+            url: newUrl,
+            date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+            timestamp: Date.now(),
+            priority: PRIORITY_STATES.NONE,
+            notes: '',
+        };
+        setLinks(prevLinks => [newLink, ...prevLinks]);
+        setNewUrl('');
+    };
+
+    const deleteLink = (id) => {
+        setLinks(links.filter(link => link.id !== id));
+        setEditingId(null);
+    };
+
+    const cyclePriorityState = (currentState) => {
+        const states = Object.values(PRIORITY_STATES);
+        const currentIndex = states.indexOf(currentState);
+        const nextIndex = (currentIndex + 1) % states.length;
+        return states[nextIndex];
+    };
+
+    const togglePriority = (id) => {
+        setLinks(links.map(link => link.id === id ? { ...link, priority: cyclePriorityState(link.priority) } : link));
+    };
+
+    const updateNotes = (id) => {
+        setLinks(links.map(link => link.id === id ? { ...link, notes: newNote } : link));
+        setEditingId(null);
+        setNewNote('');
+    };
+
+    const startEditing = (link) => {
+        setEditingId(link.id);
+        setNewNote(link.notes);
+    };
+
+    const getPriorityIcon = (priority) => {
+        switch (priority) {
+            case PRIORITY_STATES.PENDING:
+                return <Clock className="h-4 w-4" />;
+            case PRIORITY_STATES.DONE:
+                return <Check className="h-4 w-4" />;
+            case PRIORITY_STATES.REMAINING:
+                return <AlertCircle className="h-4 w-4" />;
+            default:
+                return <Star className="h-4 w-4" />;
+        }
+    };
+
+    const filterLinks = (links) => {
+        return links.filter(link => {
+            const domainMatch = filterDomain ? getUrlHostname(link.url).includes(filterDomain.toLowerCase()) : true;
+            switch (activeFilter) {
+                case PRIORITY_STATES.PENDING:
+                    return link.priority === PRIORITY_STATES.PENDING && domainMatch;
+                case PRIORITY_STATES.DONE:
+                    return link.priority === PRIORITY_STATES.DONE && domainMatch;
+                case PRIORITY_STATES.REMAINING:
+                    return link.priority === PRIORITY_STATES.REMAINING && domainMatch;
+                default:
+                    return domainMatch;
+            }
+        });
+    };
+
+    const groupedLinks = filterLinks(links).reduce((groups, link) => {
+        const date = link.date;
+        if (!groups[date]) {
+            groups[date] = [];
+        }
+        groups[date].push(link);
+        return groups;
+    }, {});
+
+    return (
+        <div className="max-w-4xl mx-auto p-4 space-y-8 bg-slate-50 min-h-screen">
+            <div className="sticky top-4 z-10 space-y-4">
+                <Card className="shadow-lg bg-white">
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <img 
-                          src={link.favicon} 
-                          alt=""
-                          className="w-4 h-4"
-                          onError={(e) => e.target.src = '/api/placeholder/16/16'}
-                        />
-                        
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <a 
-                              href={link.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              {getDomain(link.url)}
-                            </a>
-                            <span className="text-xs text-gray-400">
-                              {formatDate(link.timestamp)}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-500 truncate">
-                            {link.url}
-                          </p>
+                        <div className="flex gap-2">
+                            <Input
+                                type="url"
+                                placeholder="Paste your link here..."
+                                value={newUrl}
+                                onChange={(e) => setNewUrl(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && addLink()}
+                                className="flex-1"
+                            />
+                            <Button onClick={addLink} size="icon">
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                            <div className="relative">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className={showFilters ? 'bg-slate-100' : ''}
+                                >
+                                    <Filter className="h-4 w-4" />
+                                </Button>
+                                {showFilters && (
+                                    <Card className="absolute right-0 mt-2 w-64 p-4 shadow-xl z-20 bg-white">
+                                        <div className="space-y-4">
+                                            <div>
+                                                <h3 className="font-medium mb-2">Filter by Status</h3>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <Button
+                                                        variant={activeFilter === 'all' ? 'default' : 'outline'}
+                                                        size="sm"
+                                                        onClick={() => setActiveFilter('all')}
+                                                        className="w-full"
+                                                    >
+                                                        All
+                                                    </Button>
+                                                    <Button
+                                                        variant={activeFilter === PRIORITY_STATES.PENDING ? 'default' : 'outline'}
+                                                        size="sm"
+                                                        onClick={() => setActiveFilter(PRIORITY_STATES.PENDING)}
+                                                        className="w-full text-blue-500"
+                                                    >
+                                                        <Clock className="h-4 w-4 mr-1" /> Pending
+                                                    </Button>
+                                                    <Button
+                                                        variant={activeFilter === PRIORITY_STATES.DONE ? 'default' : 'outline'}
+                                                        size="sm"
+                                                        onClick={() => setActiveFilter(PRIORITY_STATES.DONE)}
+                                                        className="w-full text-green-500"
+                                                    >
+                                                        <Check className="h-4 w-4 mr-1" /> Done
+                                                    </Button>
+                                                    <Button
+                                                        variant={activeFilter === PRIORITY_STATES.REMAINING ? 'default' : 'outline'}
+                                                        size="sm"
+                                                        onClick={() => setActiveFilter(PRIORITY_STATES.REMAINING)}
+                                                        className="w-full text-red-500"
+                                                    >
+                                                        <AlertCircle className="h-4 w-4 mr-1" /> Remaining
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h3 className="font-medium mb-2">Filter by Website</h3>
+                                                <Input
+                                                    type="text"
+                                                    placeholder="Enter website name..."
+                                                    value={filterDomain}
+                                                    onChange={(e) => setFilterDomain(e.target.value)}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                        </div>
+                                    </Card>
+                                )}
+                            </div>
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setMoveLink(link.id)}
-                            className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600"
-                          >
-                            <MoveUp size={20} />
-                          </button>
-                          <button
-                            onClick={() => togglePriority(link.id)}
-                            className={`p-1 rounded-full hover:bg-gray-100 ${
-                              link.priority === 'important' ? 'text-yellow-500' : 'text-gray-400'
-                            }`}
-                          >
-                            {link.priority === 'important' ? <Star size={20} /> : <StarOff size={20} />}
-                          </button>
-                          <button
-                            onClick={() => deleteLink(link.id)}
-                            className="p-1 rounded-full hover:bg-gray-100 text-red-400 hover:text-red-500"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-                        </div>
-                      </div>
                     </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card className="bg-gray-50">
-                <CardContent className="p-4 text-center text-gray-500">
-                  No links in {category.label.toLowerCase()} yet
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        ))}
+                </Card>
+            </div>
 
-        {!links.length && (
-          <Card className="bg-gray-50">
-            <CardContent className="p-8 text-center text-gray-500">
-              <Link2 className="mx-auto mb-4 text-gray-400" size={32} />
-              <p>No links yet. Press Ctrl+V to add your first link!</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
-  );
+            {/* Display grouped links */}
+            <div className="space-y-8">
+                {Object.entries(groupedLinks).map(([date, dateLinks]) => (
+                    <div key={date} className="space-y-4">
+                        <h2 className="text-xl font-semibold text-slate-800 px-2">{date}</h2>
+                        <div className="grid grid-cols-1 gap-4">
+                            {dateLinks.map(link => (
+                                <Card key={link.id} className={`bg-white ${link.priority !== PRIORITY_STATES.NONE ? `ring-2 ring-${PRIORITY_COLORS[link.priority]}-500` : ''}`}>
+                                    <CardContent className="p-4">
+                                        <div className="space-y-3">
+                                            {/* Link details */}
+                                            <div className="flex items-start justify-between gap-4">
+                                                {/* Link URL */}
+                                                <div className="flex-1 space-y-1">
+                                                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">
+                                                        {getUrlHostname(link.url)}
+                                                    </a>
+                                                    {/* Timestamp */}
+                                                    <div className="flex items-center text-xs text-slate-500">
+                                                        <Clock3 className="h-3 w-3 mr-1" /> {formatTime(link.timestamp)}
+                                                    </div>
+                                                </div>
+
+                                                {/* Action buttons */}
+                                                {/* Priority toggle */}
+                                                <div className="flex gap-2 flex-shrink-0">
+                                                    {/* Toggle priority button */}
+                                                    <Button variant="ghost" size="icon" onClick={() => togglePriority(link.id)} 
+                                                            className={link.priority !== PRIORITY_STATES.NONE ? `text-${PRIORITY_COLORS[link.priority]}-500` : ''}>
+                                                        {getPriorityIcon(link.priority)}
+                                                    </Button>
+
+                                                    {/* Open link button */}
+                                                    <Button variant="ghost" size="icon" onClick={() => window.open(link.url, '_blank')}>
+                                                        <ExternalLink className="h-4 w-4" />
+                                                    </Button>
+
+                                                    {/* Delete button */}
+                                                    <Button variant="ghost" size="icon" onClick={() => deleteLink(link.id)} 
+                                                            className="hover:text-red-500">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            {/* Notes section */}
+                                            {editingId === link.id ? (
+                                                // Editing notes
+                                                <div className="space-y-2">
+                                                    <Textarea 
+                                                        placeholder="Write your notes, ideas, or summary..." 
+                                                        value={newNote} 
+                                                        onChange={(e) => setNewNote(e.target.value)} 
+                                                        className="w-full min-h-[100px]" 
+                                                    />
+                                                    {/* Save and cancel buttons */}
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+                                                            <X className="h-4 w-4 mr-1" /> Cancel
+                                                        </Button>
+                                                        <Button size="sm" onClick={() => updateNotes(link.id)}> Save Notes </Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                // Display notes or edit button
+                                                <div className="space-y-2">
+                                                    {link.notes && (
+                                                        <p className={`text-sm text-slate-${link.notes ? "600" : "400"} whitespace-pre-wrap`}>
+                                                            {link.notes}
+                                                        </p>
+                                                    )}
+                                                    {/* Edit notes button */}
+                                                    <Button variant="ghost" size="sm" onClick={() => startEditing(link)} 
+                                                            className={`text-slate-${link.notes ? "500 hover:text-slate-" + "700": "400 hover:text-slate-" + "600"} `}>
+                                                        <PencilLine className={`h-${link.notes ? "4": "3"} w-${link.notes ? "4": "3"} mr-${link.notes ? "1": "0"} `} /> 
+                                                         {link.notes ? 'Edit Notes' : 'Add Notes'}
+                                                     </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 };
 
 export default LinkManager;

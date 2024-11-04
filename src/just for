@@ -1,0 +1,9 @@
+import React, { useState, useEffect } from 'react';
+import  Card from './components/ui/Card';
+import  CardContent from './components/ui/CardContent';
+import Input from './components/ui/Input';
+import  Button from './components/ui/Button';
+import { Trash2, Maximize2, Star, Globe, Loader2, ExternalLink } from 'lucide-react';
+import  ScrollArea from './components/ui/ScrollArea';
+import  ScrollBar from './components/ui/ScrollBar';
+import { X } from 'lucide-react'; 
