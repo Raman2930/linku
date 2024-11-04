@@ -11,6 +11,7 @@ const Textarea = React.forwardRef(({ className, ...props }, ref) => {
     );
 });
 
-
+// Set display name for debugging
+Textarea.displayName = 'Textarea';
 
 export default Textarea;
