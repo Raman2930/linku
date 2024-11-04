@@ -7,6 +7,7 @@ import { Trash2, Maximize2, Star, Globe, Loader2, ExternalLink } from 'lucide-re
 import  ScrollArea from './components/ui/ScrollArea';
 import  ScrollBar from './components/ui/ScrollBar';
 import { X } from 'lucide-react'; 
+import { Play } from 'lucide-react'; 
 
 const DEFAULT_PREVIEW = {
   title: '',
@@ -27,8 +28,8 @@ const LinkManager = () => {
     }
   });
   const [newUrl, setNewUrl] = useState('');
-  const [selectedLink, setSelectedLink] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [expandedCard, setExpandedCard] = useState(null);
 
   useEffect(() => {
     try {
@@ -47,8 +48,8 @@ const LinkManager = () => {
       }
     };
 
-    document.addEventListener('paste', handlePaste);
-    return () => document.removeEventListener('paste', handlePaste);
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
   }, []);
 
   const getUrlHostname = (url) => {
@@ -60,7 +61,7 @@ const LinkManager = () => {
   };
 
   const getContentType = (url) => {
-    const hostname = getUrlHostname(url);
+    const hostname = getUrlHostname(url).toLowerCase();
     if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) return 'youtube';
     if (hostname.includes('instagram.com')) return 'instagram';
     return 'blog';
@@ -80,25 +81,48 @@ const LinkManager = () => {
     }
   };
 
+  // Simulated metadata extraction - in a real app, you'd use a backend service
+  const extractMetadata = async (url) => {
+    const type = getContentType(url);
+    const hostname = getUrlHostname(url);
+    
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    switch (type) {
+      case 'youtube':
+        return {
+          title: 'YouTube Video Title',
+          description: 'This is an example YouTube video description that would be extracted from the video metadata...',
+          siteName: 'YouTube',
+          type: 'youtube'
+        };
+      case 'instagram':
+        return {
+          title: 'Instagram Post',
+          description: 'Instagram post caption would appear here with hashtags and mentions...',
+          siteName: 'Instagram',
+          type: 'instagram'
+        };
+      default:
+        return {
+          title: `Article from ${hostname}`,
+          description: 'This is the article excerpt or meta description that would be extracted from the blog post...',
+          siteName: hostname,
+          type: 'blog'
+        };
+    }
+  };
+
   const fetchLinkPreview = async (url) => {
     try {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const metadata = await extractMetadata(url);
       const type = getContentType(url);
-      
-      // Simulate fetching metadata - in a real app, you'd fetch actual metadata
-      const description = type === 'youtube' 
-        ? 'Example YouTube video description...'
-        : type === 'instagram'
-          ? 'Instagram reel caption...'
-          : 'Blog post excerpt...';
       
       return {
         ...DEFAULT_PREVIEW,
-        title: 'Content from ' + getUrlHostname(url),
-        description,
-        siteName: getUrlHostname(url),
-        type,
+        ...metadata,
         embedUrl: getEmbedUrl(url, type)
       };
     } catch (error) {
@@ -145,9 +169,12 @@ const LinkManager = () => {
     ));
   };
 
-  const openInSite = (e, link) => {
-    e.stopPropagation();
-    setSelectedLink(link);
+  const handleCardClick = (link) => {
+    setExpandedCard(expandedCard?.id === link.id ? null : link);
+  };
+
+  const handleDoubleClick = (url) => {
+    window.open(url, '_blank');
   };
 
   // Group links by date
@@ -161,83 +188,117 @@ const LinkManager = () => {
   }, {});
 
   return (
-    <div className="max-w-6xl mx-auto p-2 md:p-4 space-y-4 md:space-y-6">
-      <div className="sticky top-0 bg-white p-3 md:p-4 shadow-md rounded-lg z-10">
-        <Input
-          type="url"
-          placeholder="Press Ctrl+V to add link or type here..."
-          value={newUrl}
-          onChange={(e) => setNewUrl(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addLink()}
-          className="w-full text-base md:text-lg"
-        />
-        {loading && (
-          <div className="absolute right-6 top-1/2 -translate-y-1/2">
-            <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-          </div>
-        )}
+    <div className="max-w-6xl mx-auto p-4 space-y-8">
+      {/* Input Box */}
+      <div className="flex justify-center">
+        <div className="w-full max-w-2xl">
+          <Card className="shadow-lg hover:shadow-xl transition-shadow">
+            <CardContent className="p-6">
+              <div className="relative">
+                <Input
+                  type="url"
+                  placeholder="Type or paste any link here..."
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addLink()}
+                  className="w-full text-lg py-6 px-4 rounded-xl border-2 focus:border-blue-500"
+                />
+                {loading && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                  </div>
+                )}
+              </div>
+              <p className="text-center text-sm text-gray-500 mt-2">
+                Press Ctrl+V to instantly add a link from your clipboard
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      <div className="space-y-4 md:space-y-6">
+      {/* Links Grid */}
+      <div className="space-y-6">
         {Object.entries(groupedLinks).map(([date, dateLinks]) => (
-          <div key={date} className="space-y-2">
-            <h2 className="text-lg font-semibold px-2">{date}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-2">
+          <div key={date} className="space-y-4">
+            <h2 className="text-xl font-semibold px-2">{date}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {dateLinks.map(link => (
                 <Card 
                   key={link.id}
-                  className={`group relative transition-all hover:shadow-lg
-                    ${link.priority ? 'ring-2 ring-blue-500' : ''}`}
+                  className={`transform transition-all duration-200 hover:-translate-y-1
+                    ${link.priority ? 'ring-2 ring-blue-500' : ''}
+                    ${expandedCard?.id === link.id ? 'col-span-full' : ''}`}
+                  onClick={() => handleCardClick(link)}
+                  onDoubleClick={() => handleDoubleClick(link.url)}
                 >
-                  <CardContent className="p-3 space-y-2">
-                    <div className="aspect-video bg-gray-100 rounded overflow-hidden flex items-center justify-center relative group">
-                      {link.preview?.image ? (
-                        <img 
-                          src={link.preview.image} 
-                          alt={link.preview.title || 'Link preview'}
-                          className="w-full h-full object-cover"
+                  <CardContent className="p-4 space-y-3">
+                    <div className={`relative ${expandedCard?.id === link.id ? 'aspect-video' : 'aspect-[16/9]'}`}>
+                      {expandedCard?.id === link.id && (link.preview?.type === 'youtube' || link.preview?.type === 'instagram') ? (
+                        <iframe 
+                          src={link.preview.embedUrl}
+                          className="absolute inset-0 w-full h-full rounded-lg"
+                          title="content"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
                         />
                       ) : (
-                        <Globe className="w-12 h-12 text-gray-400" />
+                        <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center group">
+                          {link.preview?.image ? (
+                            <img 
+                              src={link.preview.image} 
+                              alt={link.preview.title}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          ) : (
+                            <Globe className="w-12 h-12 text-gray-400" />
+                          )}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg flex items-center justify-center">
+                            <Play className="w-12 h-12 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </div>
                       )}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                     </div>
                     
                     <div>
-                      <h3 className="font-semibold text-sm">
+                      <h3 className="font-semibold text-base">
                         {link.preview?.title || getUrlHostname(link.url)}
                       </h3>
-                      <p className="text-xs text-gray-600 line-clamp-2 mt-1">
+                      <p className="text-sm text-gray-600 line-clamp-2 mt-1">
                         {link.preview?.description}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        <Globe className="w-3 h-3" />
                         {link.preview?.siteName || getUrlHostname(link.url)}
                       </p>
                     </div>
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center pt-2">
                       <Button 
                         variant="ghost" 
                         size="icon"
                         onClick={(e) => togglePriority(e, link.id)}
                         className={`transition-colors hover:bg-blue-50 
-                          ${link.priority ? 'text-blue-500' : 'group-hover:text-blue-500'}`}
+                          ${link.priority ? 'text-blue-500' : 'hover:text-blue-500'}`}
                       >
                         <Star className="h-4 w-4" fill={link.priority ? 'currentColor' : 'none'} />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon"
-                        onClick={(e) => openInSite(e, link)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(link.url, '_blank');
+                        }}
                         className="hover:bg-gray-100"
                       >
-                        <Maximize2 className="h-4 w-4" />
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon"
                         onClick={(e) => deleteLink(e, link.id)}
-                        className="group-hover:text-red-500 transition-colors hover:bg-red-50"
+                        className="hover:text-red-500 transition-colors hover:bg-red-50"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -249,56 +310,6 @@ const LinkManager = () => {
           </div>
         ))}
       </div>
-
-      {selectedLink && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 md:p-4"
-          onClick={() => setSelectedLink(null)}
-        >
-          <div 
-            className="bg-white w-full max-w-4xl h-[90vh] md:h-[80vh] rounded-lg overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center p-3 md:p-4 border-b">
-              <div className="flex-1 min-w-0">
-                <h2 className="font-semibold truncate">
-                  {selectedLink.preview?.title || getUrlHostname(selectedLink.url)}
-                </h2>
-                <p className="text-sm text-gray-500 truncate">
-                  {selectedLink.preview?.description}
-                </p>
-              </div>
-              <Button 
-                variant="ghost"
-                size="icon"
-                onClick={() => setSelectedLink(null)}
-                className="ml-2"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            {selectedLink.preview?.type === 'youtube' || selectedLink.preview?.type === 'instagram' ? (
-              <div className="w-full h-[calc(100%-4rem)] flex items-center justify-center bg-black">
-                <iframe 
-                  src={selectedLink.preview.embedUrl}
-                  className="w-full h-full md:w-[80%] md:h-[80%]"
-                  title="content"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            ) : (
-              <iframe 
-                src={selectedLink.url}
-                className="w-full h-[calc(100%-4rem)]"
-                title="content"
-                sandbox="allow-scripts allow-same-origin allow-forms"
-                allow="fullscreen"
-              />
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
