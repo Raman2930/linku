@@ -21,18 +21,12 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import {Image} from 'lucide-react';
 import { Link, Clipboard, Image as ImageIcon } from 'lucide-react';
 import {  useRef } from 'react';
+import { TooltipProvider, TooltipTrigger, TooltipContent } from './components/ui/Tooltip';
 
-import {  Mic, MicOff } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from './components/ui/Tooltip';
+import { Tooltip } from './components/ui/Tooltip';
 
 
 const ClipboardManager = () => {
-  // ... previous state declarations remain the same ...
   const [links, setLinks] = useState(() => {
     const savedLinks = localStorage.getItem('clipboardLinks');
     return savedLinks ? JSON.parse(savedLinks) : [];
@@ -42,35 +36,11 @@ const ClipboardManager = () => {
   const [isCopied, setIsCopied] = useState({});
   const [showClearModal, setShowClearModal] = useState(false);
   const [expandedLink, setExpandedLink] = useState(null);
-  const [hoveredLink, setHoveredLink] = useState(null);
-  const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState(null);
-
   const inputRef = useRef(null);
 
-  // ... previous useEffect hooks remain the same ...
-
-  const toggleVoiceInput = () => {
-    if (!recognition) {
-      alert('Speech recognition is not supported in your browser');
-      return;
-    }
-
-    if (isListening) {
-      recognition.stop();
-      setIsListening(false);
-    } else {
-      try {
-        recognition.start();
-        setIsListening(true);
-      } catch (error) {
-        console.error('Error starting speech recognition:', error);
-        setIsListening(false);
-      }
-    }
-  };
-
-  // ... rest of the component code remains exactly the same ...
+  useEffect(() => {
+    localStorage.setItem('clipboardLinks', JSON.stringify(links));
+  }, [links]);
 
   const handleImagePaste = async (clipboardData) => {
     const items = Array.from(clipboardData.items);
@@ -87,7 +57,7 @@ const ClipboardManager = () => {
             image: reader.result,
             timestamp: new Date().toISOString(),
           };
-          setLinks((prevLinks) => [newLink, ...prevLinks]);
+          setLinks(prevLinks => [newLink, ...prevLinks]);
         };
         reader.readAsDataURL(blob);
       } catch (error) {
@@ -95,6 +65,8 @@ const ClipboardManager = () => {
       }
     }
   };
+
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
 
   const handlePaste = (event) => {
     const clipboardData = event.clipboardData;
@@ -145,7 +117,7 @@ const ClipboardManager = () => {
               image: reader.result,
               timestamp: new Date().toISOString(),
             };
-            setLinks((prevLinks) => [newLink, ...prevLinks]);
+            setLinks(prevLinks => [newLink, ...prevLinks]);
           };
           reader.readAsDataURL(file);
         } catch (error) {
@@ -171,30 +143,8 @@ const ClipboardManager = () => {
       text: text,
       timestamp: new Date().toISOString(),
     };
-    setLinks((prevLinks) => [newLink, ...prevLinks]);
+    setLinks(prevLinks => [newLink, ...prevLinks]);
   };
-
-  const addLink = () => {
-    if (newLinkUrl || newLinkImage) {
-      if (newLinkUrl.match(urlRegex)) {
-        const newLink = {
-          id: Date.now(),
-          url: newLinkUrl,
-          timestamp: new Date().toISOString(),
-        };
-        setLinks((prevLinks) => [newLink, ...prevLinks]);
-      } else {
-        addTextEntry(newLinkUrl);
-      }
-      setNewLinkUrl('');
-      setNewLinkImage(null);
-      if (inputRef.current) {
-        inputRef.current.value = '';
-      }
-    }
-  };
-
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
 
   const detectAndAddUrls = (text) => {
     const urls = text.match(urlRegex);
@@ -205,15 +155,11 @@ const ClipboardManager = () => {
           url: url,
           timestamp: new Date().toISOString(),
         };
-        setLinks((prevLinks) => [newLink, ...prevLinks]);
+        setLinks(prevLinks => [newLink, ...prevLinks]);
       });
       return true;
     }
     return false;
-  };
-
-  const handleInputChange = (e) => {
-    setNewLinkUrl(e.target.value);
   };
 
   const copyContent = async (content, id) => {
@@ -239,22 +185,32 @@ const ClipboardManager = () => {
     }
   };
 
-  const deleteLink = (id) => {
-    setLinks((prevLinks) => prevLinks.filter((link) => link.id !== id));
-    if (expandedLink === id) {
-      setExpandedLink(null);
-    }
-  };
+  const ContentDisplay = ({ content, isExpanded }) => {
+    const [isOverflowing, setIsOverflowing] = useState(false);
+    const contentRef = useRef(null);
 
-  const clearAll = () => {
-    setShowClearModal(false);
-    setLinks([]);
-    setExpandedLink(null);
-    localStorage.removeItem('clipboardLinks');
-  };
+    useEffect(() => {
+      if (contentRef.current) {
+        const element = contentRef.current;
+        setIsOverflowing(element.scrollHeight > element.clientHeight);
+      }
+    }, [content]);
 
-  const toggleExpand = (id) => {
-    setExpandedLink(expandedLink === id ? null : id);
+    return (
+      <div 
+        ref={contentRef}
+        className={`relative ${
+          isExpanded ? 'max-h-none' : 'max-h-32 overflow-hidden'
+        }`}
+      >
+        <pre className="whitespace-pre-wrap break-words font-sans">
+          {content}
+        </pre>
+        {!isExpanded && isOverflowing && (
+          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent" />
+        )}
+      </div>
+    );
   };
 
   return (
@@ -264,56 +220,99 @@ const ClipboardManager = () => {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="sticky top-4 bg-white shadow-lg p-4 flex items-center justify-between rounded-lg">
+      <div className="sticky top-4 bg-white shadow-lg p-4 flex items-center justify-between rounded-lg z-10">
         <div className="flex items-center gap-2 flex-1">
           <Clipboard className="h-6 w-6" />
-          <div className="relative flex-1 flex items-center">
-            <Input
-              type="text"
-              placeholder="Type or paste text, links, or drop images here..."
-              value={newLinkUrl}
-              onChange={handleInputChange}
-              onKeyDown={(e) => e.key === 'Enter' && addLink()}
-              ref={inputRef}
-              className="flex-1 pr-10"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleVoiceInput}
-              className={`absolute right-2 ${isListening ? 'text-red-500' : ''}`}
-              title={isListening ? 'Stop voice input' : 'Start voice input'}
-            >
-              {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
-            </Button>
-          </div>
+          <Input
+            type="text"
+            placeholder="Type or paste text, links, or drop images here..."
+            value={newLinkUrl}
+            onChange={(e) => setNewLinkUrl(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addTextEntry(newLinkUrl)}
+            ref={inputRef}
+            className="flex-1"
+          />
         </div>
-        {newLinkUrl && (
-          <Button variant="default" onClick={addLink} className="ml-2">
-            Save
-          </Button>
-        )}
       </div>
 
       <div className="space-y-4">
         {links.map((link) => (
           <Card
             key={link.id}
-            className={`bg-white shadow-lg ${expandedLink === link.id ? 'h-auto' : 'h-24'}`}
-            onDoubleClick={() => toggleExpand(link.id)}
+            className="bg-white shadow-lg transition-all duration-200 ease-in-out"
+            onClick={() => setExpandedLink(expandedLink === link.id ? null : link.id)}
           >
-            <CardContent className="p-4 flex items-center justify-between">
-              {link.image ? (
-                <div className="flex items-center gap-4 flex-1">
-                  <img 
-                    src={link.image} 
-                    alt="Clipboard content" 
-                    className="h-16 w-16 object-cover rounded"
-                  />
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  {link.image ? (
+                    <div className="flex items-center gap-4">
+                      <img 
+                        src={link.image} 
+                        alt="Clipboard content" 
+                        className="h-16 w-16 object-cover rounded"
+                      />
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyImage(link.image, link.id);
+                        }}
+                      >
+                        {isCopied[link.id] ? (
+                          <Clipboard className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  ) : link.url ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline block"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {link.url}
+                          </a>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="p-2 bg-white rounded shadow-lg">
+                            <div className="flex items-start space-x-2">
+                              <img 
+                                src={`https://www.google.com/s2/favicons?domain=${new URL(link.url).hostname}`}
+                                alt="favicon"
+                                className="w-4 h-4"
+                              />
+                              <div>
+                                <div className="font-medium">{new URL(link.url).hostname}</div>
+                                <div className="text-sm text-gray-500 truncate">{link.url}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <ContentDisplay 
+                      content={link.text} 
+                      isExpanded={expandedLink === link.id}
+                    />
+                  )}
+                </div>
+                <div className="flex items-center space-x-2 flex-shrink-0">
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={() => copyImage(link.image, link.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyContent(link.url || link.text, link.id);
+                    }}
                   >
                     {isCopied[link.id] ? (
                       <Clipboard className="h-4 w-4 text-green-500" />
@@ -321,65 +320,17 @@ const ClipboardManager = () => {
                       <Copy className="h-4 w-4" />
                     )}
                   </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLinks(prevLinks => prevLinks.filter(l => l.id !== link.id));
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
-              ) : link.url ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex-1">
-                        <a
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`text-blue-600 hover:underline break-all ${
-                            link.url.length > 30 ? (expandedLink === link.id ? '' : 'line-clamp-2') : ''
-                          }`}
-                        >
-                          {link.url}
-                        </a>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="p-2 bg-white rounded shadow-lg">
-                        <div className="flex items-start space-x-2">
-                          <img 
-                            src={`https://www.google.com/s2/favicons?domain=${new URL(link.url).hostname}`}
-                            alt="favicon"
-                            className="w-4 h-4"
-                          />
-                          <div>
-                            <div className="font-medium">{new URL(link.url).hostname}</div>
-                            <div className="text-sm text-gray-500 truncate">{link.url}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : (
-                <div className="flex-1">
-                  <p className={`break-all ${
-                    link.text.length > 100 ? (expandedLink === link.id ? '' : 'line-clamp-2') : ''
-                  }`}>
-                    {link.text}
-                  </p>
-                </div>
-              )}
-              <div className="flex items-center space-x-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => copyContent(link.url || link.text, link.id)}
-                >
-                  {isCopied[link.id] ? (
-                    <Clipboard className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => deleteLink(link.id)}>
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -408,7 +359,10 @@ const ClipboardManager = () => {
               <Button variant="ghost" onClick={() => setShowClearModal(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={clearAll}>
+              <Button variant="destructive" onClick={() => {
+                setLinks([]);
+                setShowClearModal(false);
+              }}>
                 Clear All
               </Button>
             </div>
