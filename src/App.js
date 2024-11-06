@@ -32,6 +32,7 @@ import { Alert } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./components/ui/Dialog";
 import {  Save, Undo, Trash} from 'lucide-react';
 
+
 const ClipboardManager = () => {
   const [links, setLinks] = useState(() => {
     const savedLinks = localStorage.getItem('clipboardLinks');
@@ -172,7 +173,7 @@ const ClipboardManager = () => {
         </div>
       )}
 
-      <div className="sticky top-4 bg-white shadow-lg p-4 rounded-lg z-10">
+      <div className="sticky top-4 bg-white shadow-lg p-4 rounded-lg z-10 w-full">
         <div className="flex flex-col gap-3">
           <div className="flex gap-3">
             <div className="flex-1 relative">
@@ -244,11 +245,10 @@ const ClipboardManager = () => {
                     <TooltipTrigger asChild>
                       <Button
                         onClick={handleSave}
-                        size="default"
-                        className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                        size="icon"
+                        className="h-10 w-10 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
                       >
                         <Save className="h-4 w-4" />
-                        Save
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
