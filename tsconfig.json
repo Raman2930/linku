@@ -1,0 +1,14 @@
+
+
+  {
+    "compilerOptions": {
+      "target": "es6",
+      "module": "commonjs",
+      "jsx": "react-jsx", // or "react" for older React versions
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true
+    }
+  }
+  
