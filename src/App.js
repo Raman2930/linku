@@ -31,6 +31,11 @@ import { Alert } from '@/components/ui/alert';
 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./components/ui/Dialog";
 import {  Save, Undo, Trash} from 'lucide-react';
+import ReactGA from "react-ga4";
+
+ReactGA.initialize("G-XRKP0EV5TN"); // Replace with your Measurement ID
+
+ReactDOM.render(<App />, document.getElementById("root"));
 
 const ClipboardManager = () => {
   const [links, setLinks] = useState(() => {

@@ -19,7 +19,7 @@
             --color-primary-light: #3b82f6;
             --color-secondary: #64748b;
             --color-background: #f8fafc;
-            --color-surface: #ffffff;
+            --color-surface: rgba(255, 255, 255, 0.8); /* Light transparent white */
             --color-text: #1e293b;
             --color-text-secondary: #64748b;
             --color-border: #e2e8f0;
@@ -76,6 +76,7 @@
             margin: 0 auto;
             padding: 0 var(--container-padding);
             width: 100%;
+            background-color: transparent;
         }
 
         /* Input Section */
@@ -87,7 +88,7 @@
         }
 
         .input-card {
-            background: var(--color-surface);
+            background: rgba(240, 240, 240, 0.8); /* Light grey with slight transparency */
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-lg);
             padding: var(--space-6);
@@ -135,7 +136,7 @@
 
         /* Card Design */
         .card {
-            background: var(--color-surface);
+            background: var(--color-surface); /* Light transparent white */
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-sm);
             overflow: hidden;
@@ -153,7 +154,7 @@
         .card-media {
             position: relative;
             padding-top: 56.25%; /* 16:9 Aspect Ratio */
-            background: var(--color-background);
+            background: transparent;
         }
 
         .card-media img {
@@ -235,7 +236,7 @@
         }
 
         .button-ghost:hover {
-            background-color: var(--color-background);
+            background-color: rgba(240, 240, 240, 0.5); /* Light grey with transparency */
             color: var(--color-primary);
         }
 
@@ -294,46 +295,31 @@
                        placeholder="Type or paste any link here..."
                        aria-label="Add new link">
                 <p class="text-center text-sm text-gray-500 mt-2">
-                    Press Ctrl+V to instantly add a link from your clipboard
+                    Paste the link and hit Enter
                 </p>
             </div>
         </div>
 
-        <!-- Links Section -->
-        <main>
-            <section class="date-section">
-                <h2 class="date-heading">Today</h2>
-                <div class="grid">
-                    <!-- Card Example -->
-                    <article class="card">
-                        <div class="card-media">
-                            <img src="/api/placeholder/400/225" alt="Content preview">
-                        </div>
-                        <div class="card-content">
-                            <h3 class="card-title">Article Title or Video Name Goes Here With Two Lines Maximum Height</h3>
-                            <p class="card-description">
-                                This is a brief description or excerpt from the content. It can span up to three lines before being truncated with an ellipsis to maintain consistent card heights.
-                            </p>
-                            <div class="card-footer">
-                                <button class="button button-ghost">
-                                    <span class="button-icon">★</span>
-                                    <span class="visually-hidden">Add to favorites</span>
-                                </button>
-                                <button class="button button-ghost">
-                                    <span class="button-icon">↗</span>
-                                    <span class="visually-hidden">Open link</span>
-                                </button>
-                                <button class="button button-ghost">
-                                    <span class="button-icon">🗑</span>
-                                    <span class="visually-hidden">Delete</span>
-                                </button>
-                            </div>
-                        </div>
-                    </article>
-                    <!-- Repeat cards as needed -->
+        <!-- Date Section -->
+        <div class="date-section">
+            <h2 class="date-heading">Today’s Links</h2>
+            <div class="grid">
+                <!-- Card Example -->
+                <div class="card">
+                    <div class="card-media">
+                        <img src="https://via.placeholder.com/150" alt="Link Thumbnail">
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">Sample Link Title</h3>
+                        <p class="card-description">A short description of the link goes here, explaining what the link is about.</p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="#" class="button button-ghost">Visit</a>
+                    </div>
                 </div>
-            </section>
-        </main>
+                <!-- Repeat cards as needed -->
+            </div>
+        </div>
     </div>
 </body>
 </html>
